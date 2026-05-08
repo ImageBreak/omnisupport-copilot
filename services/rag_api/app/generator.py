@@ -1,8 +1,8 @@
-"""RAG Generator — Claude API 调用 + 证据引用生成
+"""RAG Generator — 阿里云百炼 API 调用 + 证据引用生成
 
 负责：
 - 构建 RAG system prompt（含 evidence-first 约束）
-- 调用 Claude API 生成答案
+- 调用阿里云百炼 API 生成答案
 - 解析引用，关联 evidence_anchor
 - 写入审计日志
 """
@@ -61,7 +61,7 @@ def build_context_blocks(chunks) -> str:
     return "\n\n---\n\n".join(blocks)
 
 
-# ── Claude API 调用 ───────────────────────────────────────────────────────────
+# ── 阿里云百炼 API 调用 ───────────────────────────────────────────────────────
 
 async def generate_answer(
     query: str,
@@ -69,7 +69,7 @@ async def generate_answer(
     trace_id: str,
 ) -> tuple[str, list[str], float]:
     """
-    调用 Claude 生成带引用的回答。
+    调用阿里云百炼生成带引用的回答。
 
     返回: (answer_text, citations_list, confidence_score)
     """
@@ -87,20 +87,26 @@ async def generate_answer(
     )
 
     try:
-        import anthropic
+        # 使用 OpenAI 兼容客户端调用阿里云百炼
+        from openai import OpenAI
 
-        client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+        client = OpenAI(
+            api_key=settings.bailian_api_key,
+            base_url=settings.bailian_base_url,
+        )
 
-        response = client.messages.create(
+        response = client.chat.completions.create(
             model=settings.llm_model,
             max_tokens=settings.llm_max_tokens,
             temperature=settings.llm_temperature,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_message}],
-            metadata={"user_id": trace_id},  # OTel trace 关联
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_message},
+            ],
+            extra_body={"metadata": {"trace_id": trace_id},"enable_thinking": True},  # OTel trace 关联
         )
 
-        answer = response.content[0].text
+        answer = response.choices[0].message.content or ""
 
         # 解析答案中的引用标记 [来源N]
         citations = _extract_citations(answer, chunks)
@@ -110,12 +116,65 @@ async def generate_answer(
 
         return answer, citations, confidence
 
-    except anthropic.AuthenticationError:
-        logger.error("Anthropic API key invalid")
-        return _fallback_answer(query, chunks), [], 0.3
     except Exception as e:
-        logger.error(f"Claude API error: {e}")
+        logger.error(f"Bailian API error: {e}")
         return _fallback_answer(query, chunks), [], 0.3
+
+
+# ── 已弃用的 Claude API 代码（保留供参考）──────────────────────────────────────
+# async def generate_answer_claude(
+#     query: str,
+#     chunks,
+#     trace_id: str,
+# ) -> tuple[str, list[str], float]:
+#     """
+#     调用 Claude 生成带引用的回答。（已弃用，改用阿里云百炼）
+# 
+#     返回: (answer_text, citations_list, confidence_score)
+#     """
+#     if not chunks:
+#         return (
+#             "当前知识库未找到与您问题相关的内容，建议创建工单由支持团队处理。",
+#             [],
+#             0.0,
+#         )
+# 
+#     context = build_context_blocks(chunks)
+#     user_message = CONTEXT_TEMPLATE.format(
+#         context_blocks=context,
+#         query=query,
+#     )
+# 
+#     try:
+#         import anthropic
+# 
+#         client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+# 
+#         response = client.messages.create(
+#             model=settings.llm_model,
+#             max_tokens=settings.llm_max_tokens,
+#             temperature=settings.llm_temperature,
+#             system=SYSTEM_PROMPT,
+#             messages=[{"role": "user", "content": user_message}],
+#             metadata={"user_id": trace_id},  # OTel trace 关联
+#         )
+# 
+#         answer = response.content[0].text
+# 
+#         # 解析答案中的引用标记 [来源N]
+#         citations = _extract_citations(answer, chunks)
+# 
+#         # 置信度：基于检索得分估算（简化）
+#         confidence = _estimate_confidence(chunks)
+# 
+#         return answer, citations, confidence
+# 
+#     except anthropic.AuthenticationError:
+#         logger.error("Anthropic API key invalid")
+#         return _fallback_answer(query, chunks), [], 0.3
+#     except Exception as e:
+#         logger.error(f"Claude API error: {e}")
+#         return _fallback_answer(query, chunks), [], 0.3
 
 
 def _extract_citations(answer: str, chunks) -> list[str]:

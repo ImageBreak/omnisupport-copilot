@@ -61,3 +61,6 @@ artifacts/
 # Compiled assets
 *.mo
 *.pot
+
+#data
+data

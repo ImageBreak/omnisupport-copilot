@@ -21,8 +21,13 @@ class Settings(BaseSettings):
     minio_bucket_indexes: str = "omni-indexes"
 
     # ── LLM ─────────────────────────────────────────────────────────────────
+    # 阿里云百炼配置
+    bailian_api_key: str = ""
+    bailian_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    
+    # Anthropic Claude 配置（已弃用，保留供参考）
     anthropic_api_key: str = ""
-    llm_model: str = "claude-sonnet-4-6"
+    llm_model: str = "qwen-plus"  # 默认使用阿里云百炼模型
     llm_max_tokens: int = 2048
     llm_temperature: float = 0.0
 
