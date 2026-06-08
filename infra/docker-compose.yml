@@ -50,7 +50,7 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
     ports:
       - "9000:9000"   # S3 API
-      - "9001:9001"   # Web Console
+      - "10011:9001"   # Web Console
     volumes:
       - minio_data:/data
     networks:
