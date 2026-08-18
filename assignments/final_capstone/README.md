@@ -34,17 +34,16 @@ CAPSTONE_INDEX_RELEASE_ID=index-capstone-v1
 CAPSTONE_PROMPT_RELEASE_ID=prompt-capstone-v1
 ```
 
-本地模型可选配置如下；Ollama 未启动、超时或返回非法 JSON 时，Query Rewrite 和生成流程会降级，不应返回 500：
+本次留档验收使用现有 DeepSeek 配置；密钥仅存在于本地 `.env.local`，绝不提交。模型不可用、超时或返回非法 JSON 时，Query Rewrite 和生成流程会降级，不应返回 500：
 
 ```dotenv
-LLM_PROVIDER=ollama
-LLM_MODEL=qwen2.5:7b
-LLM_BASE_URL=http://host.docker.internal:11434/v1
-QUERY_REWRITE_PROVIDER=ollama
-QUERY_REWRITE_MODEL=qwen2.5:7b
+LLM_PROVIDER=deepseek
+LLM_MODEL=deepseek-v4-flash
+QUERY_REWRITE_PROVIDER=deepseek
+QUERY_REWRITE_MODEL=deepseek-v4-flash
 ```
 
-若不使用 Ollama，则保持 `LLM_PROVIDER=auto` 且不填密钥/模型；系统使用证据摘要与 deterministic embedding fallback。不得把真实客户文本、签名密钥、令牌或 PII 写入 `.env.local`、Golden Set 或 Trace。
+若无 DeepSeek 配置，则保持 `LLM_PROVIDER=auto` 且不填密钥/模型；系统使用证据摘要与 deterministic embedding fallback。不得把真实客户文本、签名密钥、令牌或 PII 写入 `.env.local`、Golden Set 或 Trace。
 
 ## 验收命令
 
@@ -77,9 +76,9 @@ docker compose --profile tools --env-file infra/env/.env.local -f infra/docker-c
 baseline_commit: 87be56229a241f29eaf13ce6292d890fd6b36559
 candidate_commit: 98c7f4f6c4519684b4d8e4be7475901cac3d610e
 theme: webhook-troubleshooting
-provider/model: ollama / qwen2.5:7b | deterministic fallback
+provider/model: deepseek / deepseek-v4-flash | deterministic fallback
 release_id: capstone-v1.1.1
-golden_set: 8 cases, 8 passed
+golden_set: C1..C8, 8 cases, 8 passed
 hard_gates: G1..G6 pass
 capstone_e2e: pass
 representative_trace_id: b22c45f89f471846bbe4fe0b6b04f88a
@@ -95,6 +94,6 @@ known_limitations: synthetic eight-case gate only; no cross-machine p95 threshol
 | Docker 构建或拉取失败 | 检查 Docker Desktop 是否运行、网络/代理是否允许镜像拉取，再重复“一键启动”命令。不要改用个人 venv。 |
 | `/health` 未就绪 | 用 `docker compose --env-file infra/env/.env.local -f infra/docker-compose.yml ps` 检查 `postgres`、`rag_api`、`tool_api`、`copilot_api`；待依赖健康后重跑 bootstrap。 |
 | 方案卡返回 404 `remediation_card_not_enabled_for_release` | 检查 `CAPSTONE_RELEASE_ID=capstone-v1.1.1` 和 `CAPSTONE_REMEDIATION_CARD_ENABLED=true`，随后重建 `copilot_api`。这是回滚后的预期行为。 |
-| Ollama 不可用或模型输出异常 | 检查 `LLM_BASE_URL` 与已下载模型；也可切回 `LLM_PROVIDER=auto`，验收仍应走 deterministic fallback 而非 500。 |
+| DeepSeek/Ollama 不可用或模型输出异常 | 检查 provider 的连接与模型配置；也可切回 `LLM_PROVIDER=auto`，验收仍应走 deterministic fallback 而非 500。 |
 | 引用为空或卡片拒答 | 确认问题包含产品、HTTP 状态或版本/错误码；这是证据不足时的安全结果。可用 `EG-BOOT-004` 等精确标识验证 rewrite 保留。 |
 | 发布指针或服务 release 不一致 | 先运行 `scripts.capstone.bootstrap --stage release --dry-run`，确认数据/索引/提示词/Skill/服务绑定，再重建三个 API 容器。回滚步骤和验证见 `reports/release_and_rollback.md`。 |
