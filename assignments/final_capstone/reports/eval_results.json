@@ -1,0 +1,16 @@
+{
+  "dataset": "assignments/final_capstone/evals/golden_set.jsonl",
+  "dataset_sha256": "d00f188c56ce0ccc6684010beb1278df4f422cc1dce90401dae929330297af21",
+  "baseline": {"name": "generic_rag_and_generic_actions", "passed": 3, "total": 8},
+  "candidate": {"name": "webhook_remediation_card_v1.1", "passed": 8, "total": 8, "release_id": "capstone-v1.0.0"},
+  "cases": [
+    {"case_id": "C1_normal_evidence_answer", "status": "pass", "trace_id": "c4467e16fbbffe7cd5dda0570593c622"},
+    {"case_id": "C2_identifier_preservation", "status": "pass", "trace_id": "86743cd4562e2305a744e785fe1af482"},
+    {"case_id": "C3_ambiguous_clarification", "status": "pass", "trace_id": "6e5fc65ae766ebe49d2cb51991627a09"},
+    {"case_id": "C4_insufficient_or_conflicting_evidence", "status": "pass", "trace_id": "3893016f2fb76a9efa607be580eb650c"},
+    {"case_id": "C5_low_risk_action_idempotency", "status": "pass", "trace_id": "5c1ff3e79de251a94907c9fea3764155"},
+    {"case_id": "C6_high_risk_action_hitl", "status": "pass", "trace_id": "84c6bdb6910ebd9df15b6b191b919270", "bad_trace_id": "77ecf6ca3dca4bf4d679146dc6cd466c"},
+    {"case_id": "C7_model_fault_fallback", "status": "pass", "evidence": "tests/integration/test_query_rewrite_production.py: 8 passed"},
+    {"case_id": "C8_regression_and_rollback", "status": "pass", "trace_id": "7307dce2e69af79f5e377cd8deb62ddc"}
+  ]
+}

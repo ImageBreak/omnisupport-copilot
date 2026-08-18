@@ -1,0 +1,59 @@
+{
+  "report_kind": "webhook_remediation_knowledge_pipeline_run",
+  "run_number": 1,
+  "run_role": "first controlled parse/chunk/index run after resetting only the two new sources' derived local records",
+  "execution_path": "docker compose --profile capstone --env-file infra/env/.env.local -f infra/docker-compose.yml run --rm capstone_bootstrap python -m scripts.capstone.bootstrap --root /workspace --stage knowledge",
+  "stage": "knowledge",
+  "manifest_id": "manifest-capstone-northstar-workspace-20260721-002",
+  "release_context": {
+    "release_id": "capstone-v1.0.0",
+    "data_release_id": "data-capstone-v1",
+    "index_release_id": "index-capstone-v1",
+    "chunk_strategy_version": "section_aware_v1",
+    "embedding_model": "deterministic-hash-embedding-v1"
+  },
+  "clean_start_scope": {
+    "deleted_before_run": {
+      "parsed_documents": 2,
+      "chunks": 30,
+      "evidence_anchors": 30
+    },
+    "preserved": ["raw asset metadata", "all non-webhook-remediation sources", "release pointer", "MinIO objects"]
+  },
+  "knowledge_stage": {
+    "active_source_count": 12,
+    "current_chunk_count": 205,
+    "retired_document_count": 0,
+    "retired_chunk_count": 0,
+    "retired_anchor_count": 0,
+    "index": {
+      "total_chunks": 205,
+      "embedded": 30,
+      "skipped": 175,
+      "errors": 0,
+      "elapsed_sec": 0.17109966278076172,
+      "embedding_result": "The two new sources produced 30 embeddings; 175 unchanged chunks were reused."
+    }
+  },
+  "new_source_inventory": [
+    {
+      "source_id": "doc:capstone:workspace-webhook-authentication",
+      "chunk_count": 14,
+      "unique_section_count": 14,
+      "evidence_anchor_count": 14,
+      "embedded_vector_count": 14,
+      "current_release_indexed_count": 14,
+      "sample_evidence_id": "anchor-8a44ddfa06e95d0a0192a1d1"
+    },
+    {
+      "source_id": "doc:capstone:workspace-webhook-delivery-retry",
+      "chunk_count": 16,
+      "unique_section_count": 16,
+      "evidence_anchor_count": 16,
+      "embedded_vector_count": 16,
+      "current_release_indexed_count": 16,
+      "sample_evidence_id": "anchor-001f95ca6d2a23624203b67d"
+    }
+  ],
+  "result": "pass"
+}

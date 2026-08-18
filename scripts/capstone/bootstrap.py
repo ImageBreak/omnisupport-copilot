@@ -30,6 +30,8 @@ INDEX_RELEASE_ID = os.environ.get("CAPSTONE_INDEX_RELEASE_ID", "index-capstone-v
 PROMPT_RELEASE_ID = os.environ.get("CAPSTONE_PROMPT_RELEASE_ID", "prompt-capstone-v1")
 GRAPH_RELEASE_ID = os.environ.get("CAPSTONE_GRAPH_RELEASE_ID", "graph-capstone-v1")
 RELEASE_ID = os.environ.get("CAPSTONE_RELEASE_ID", "capstone-v1.0.0")
+SKILL_RELEASE_ID = os.environ.get("CAPSTONE_SKILL_RELEASE_ID", "skills-webhook-remediation-v1.1.0")
+SERVICE_RELEASE_ID = os.environ.get("CAPSTONE_SERVICE_RELEASE_ID", "services-webhook-remediation-v1.1.0")
 
 
 def dsn() -> str:
@@ -455,21 +457,45 @@ def graph_stage(root: Path) -> dict[str, Any]:
     }
 
 
-async def release_stage() -> dict[str, Any]:
-    body = {
-        "release_id": RELEASE_ID,
-        "data_release_id": DATA_RELEASE_ID,
-        "index_release_id": INDEX_RELEASE_ID,
-        "prompt_release_id": PROMPT_RELEASE_ID,
-        "graph_release_id": GRAPH_RELEASE_ID,
-        "eval_run_id": "eval-capstone-smoke-v1",
-        "services": {"rag_api": "1.0.0", "tool_api": "1.0.0", "copilot_api": "1.0.0"},
-    }
-    stable = json.dumps(body, sort_keys=True, separators=(",", ":"))
-    digest = "sha256:" + hashlib.sha256(stable.encode()).hexdigest()
+def _candidate_git_sha() -> str:
+    return os.environ.get("GIT_SHA") or subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], text=True
+    ).strip()
+
+
+async def release_stage(*, dry_run: bool = False) -> dict[str, Any]:
     conn = await asyncpg.connect(dsn())
     try:
         async with conn.transaction():
+            active = await conn.fetchrow(
+                "SELECT active_release_id, generation FROM release_environment_pointer WHERE environment = 'dev' FOR UPDATE"
+            )
+            active_release_id = active["active_release_id"] if active else None
+            generation = int(active["generation"]) if active else 0
+            body = {
+                "release_id": RELEASE_ID,
+                "previous_release_id": active_release_id,
+                "data_release_id": DATA_RELEASE_ID,
+                "index_release_id": INDEX_RELEASE_ID,
+                "prompt_release_id": PROMPT_RELEASE_ID,
+                "skill_release_id": SKILL_RELEASE_ID,
+                "service_release_id": SERVICE_RELEASE_ID,
+                "graph_release_id": GRAPH_RELEASE_ID,
+                "eval_run_id": "eval-webhook-remediation-v1.1",
+                "git_sha": _candidate_git_sha(),
+                "services": {"rag_api": "1.1.0", "tool_api": "1.0.0", "copilot_api": "1.1.0"},
+            }
+            stable = json.dumps(body, sort_keys=True, separators=(",", ":"))
+            digest = "sha256:" + hashlib.sha256(stable.encode()).hexdigest()
+            if dry_run:
+                return {
+                    "status": "dry_run_pass",
+                    "release_id": RELEASE_ID,
+                    "rollback_target": active_release_id,
+                    "next_generation": generation + 1,
+                    "manifest_digest": digest,
+                    "bindings": body,
+                }
             existing_digest = await conn.fetchval(
                 "SELECT manifest_digest FROM governed_release_manifest WHERE release_id = $1",
                 RELEASE_ID,
@@ -489,7 +515,7 @@ async def release_stage() -> dict[str, Any]:
                 """,
                 RELEASE_ID,
                 digest,
-                "0" * 40,
+                body["git_sha"],
                 json.dumps(body),
             )
             await conn.execute(
@@ -509,10 +535,66 @@ async def release_stage() -> dict[str, Any]:
             )
     finally:
         await conn.close()
-    return {"status": "active", "release_id": RELEASE_ID, "manifest_digest": digest}
+    return {
+        "status": "active",
+        "release_id": RELEASE_ID,
+        "rollback_target": active_release_id,
+        "generation": generation + (0 if active_release_id == RELEASE_ID else 1),
+        "manifest_digest": digest,
+        "bindings": body,
+    }
 
 
-async def run(root: Path, stage: str, count: int) -> dict[str, Any]:
+async def rollback_stage(*, target_release_id: str, dry_run: bool = False) -> dict[str, Any]:
+    conn = await asyncpg.connect(dsn())
+    try:
+        async with conn.transaction():
+            active = await conn.fetchrow(
+                "SELECT active_release_id, generation FROM release_environment_pointer WHERE environment = 'dev' FOR UPDATE"
+            )
+            if active is None:
+                raise RuntimeError("release pointer is not initialized")
+            current_release_id = str(active["active_release_id"])
+            current = await conn.fetchrow(
+                "SELECT manifest_body FROM governed_release_manifest WHERE release_id = $1",
+                current_release_id,
+            )
+            if current is None:
+                raise RuntimeError("active release manifest is missing")
+            body = dict(current["manifest_body"])
+            if body.get("previous_release_id") != target_release_id:
+                raise RuntimeError("rollback target must be the candidate's direct previous release")
+            next_generation = int(active["generation"]) + 1
+            if dry_run:
+                return {
+                    "status": "dry_run_pass",
+                    "current_release_id": current_release_id,
+                    "rollback_target": target_release_id,
+                    "next_generation": next_generation,
+                }
+            await conn.execute(
+                """
+                UPDATE release_environment_pointer
+                SET active_release_id = $1, generation = $2, updated_by = 'capstone-rollback', updated_at = NOW()
+                WHERE environment = 'dev' AND active_release_id = $3
+                """,
+                target_release_id,
+                next_generation,
+                current_release_id,
+            )
+    finally:
+        await conn.close()
+    return {
+        "status": "rolled_back",
+        "active_release_id": target_release_id,
+        "previous_release_id": current_release_id,
+        "generation": next_generation,
+    }
+
+
+async def run(
+    root: Path, stage: str, count: int, *, dry_run: bool = False, rollback_target: str | None = None
+) -> dict[str, Any]:
     root = root.resolve()
     await apply_additive_migrations(root)
     generation = generate(root, count=count)
@@ -526,7 +608,13 @@ async def run(root: Path, stage: str, count: int) -> dict[str, Any]:
     if stage in {"all", "graph"}:
         summary["graph"] = await asyncio.to_thread(graph_stage, root)
     if stage in {"all", "release"}:
-        summary["release"] = await release_stage()
+        summary["release"] = await release_stage(dry_run=dry_run)
+    if stage == "rollback":
+        if not rollback_target:
+            raise ValueError("--rollback-target is required for rollback")
+        summary["rollback"] = await rollback_stage(
+            target_release_id=rollback_target, dry_run=dry_run
+        )
     output = root / "reports" / "capstone" / f"bootstrap-{stage}.json"
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(summary, ensure_ascii=False, indent=2, default=str) + "\n", encoding="utf-8")
@@ -536,10 +624,20 @@ async def run(root: Path, stage: str, count: int) -> dict[str, Any]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, default=Path.cwd())
-    parser.add_argument("--stage", choices=["all", "ingest", "knowledge", "analytics", "graph", "release"], default="all")
+    parser.add_argument("--stage", choices=["all", "ingest", "knowledge", "analytics", "graph", "release", "rollback"], default="all")
     parser.add_argument("--ticket-count", type=int, default=int(os.environ.get("CAPSTONE_TICKET_COUNT", "240")))
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--rollback-target")
     args = parser.parse_args()
-    summary = asyncio.run(run(args.root, args.stage, args.ticket_count))
+    summary = asyncio.run(
+        run(
+            args.root,
+            args.stage,
+            args.ticket_count,
+            dry_run=args.dry_run,
+            rollback_target=args.rollback_target,
+        )
+    )
     print(json.dumps(summary, ensure_ascii=False, indent=2, default=str))
 
 

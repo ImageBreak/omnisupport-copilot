@@ -23,8 +23,12 @@ from app.models import (
     KpiQuery,
     LoginRequest,
     MessageCreate,
+    RemediationActionCreate,
+    RemediationCardCreate,
+    RemediationCardResponse,
     TicketActionCreate,
 )
+from app.remediation import build_remediation_card
 from app.security import (
     Principal,
     create_access_token,
@@ -360,6 +364,89 @@ async def get_case(ticket_id: str, principal: Principal = Depends(current_princi
     }
 
 
+@app.post(
+    "/api/v1/cases/{ticket_id}/remediation-card",
+    response_model=RemediationCardResponse,
+)
+async def create_remediation_card(
+    ticket_id: str,
+    payload: RemediationCardCreate,
+    request: Request,
+    principal: Principal = Depends(current_principal),
+) -> RemediationCardResponse:
+    """Build an evidence-gated webhook remediation card without executing an action."""
+
+    require_roles(principal, "support_agent", "support_lead", "support_ops", "billing_ops", "admin")
+    case = await _case_row(ticket_id, principal)
+    rag_request = {
+        "question": payload.question,
+        "tenant_id": principal.tenant_id,
+        "product_line": str(case["product_line"]),
+        "actor_role": principal.role,
+        "visibility_scope": "internal",
+        "top_k": 5,
+        "retrieval_mode": "hybrid",
+        "include_debug": False,
+    }
+    with traced_span(
+        "product.remediation_card",
+        kind="CHAIN",
+        attributes={
+            "omni.ticket_id": ticket_id,
+            "omni.actor.role": principal.role,
+            "omni.remediation_card.version": "1.0.0",
+        },
+    ):
+        try:
+            async with httpx.AsyncClient(timeout=45.0) as client:
+                response = await client.post(
+                    f"{settings.rag_api_url}/rag/answer",
+                    json=rag_request,
+                    headers={
+                        "X-Service-Token": settings.internal_service_token,
+                        "X-Actor-ID": principal.user_id,
+                        "X-Actor-Role": principal.role,
+                        "X-Tenant-ID": principal.tenant_id,
+                        "X-Request-ID": request.state.request_id,
+                    },
+                )
+                response.raise_for_status()
+                rag_answer = response.json()
+        except httpx.HTTPError as exc:
+            await _audit(
+                principal,
+                event_type="remediation_card.generate",
+                resource_type="ticket",
+                resource_id=ticket_id,
+                outcome="dependency_failed",
+                request_id=request.state.request_id,
+                details={"dependency": "rag_api", "error_type": type(exc).__name__},
+            )
+            raise HTTPException(status_code=502, detail="rag_api_unavailable") from exc
+
+        card = build_remediation_card(question=payload.question, rag_answer=rag_answer)
+
+    result = RemediationCardResponse.model_validate(card)
+    await _audit(
+        principal,
+        event_type="remediation_card.generate",
+        resource_type="ticket",
+        resource_id=ticket_id,
+        outcome="abstained" if result.abstain_reason and not result.needs_clarification else "success",
+        request_id=request.state.request_id,
+        trace_id=result.trace_id,
+        details={
+            "evidence_ids": [citation.evidence_id for citation in result.citations],
+            "evidence_count": len(result.citations),
+            "confidence": result.confidence,
+            "needs_clarification": result.needs_clarification,
+            "abstain_reason": result.abstain_reason,
+            "proposed_action": result.proposed_action.model_dump(),
+        },
+    )
+    return result
+
+
 @app.post("/api/v1/cases/{ticket_id}/conversations", status_code=201)
 async def create_conversation(
     ticket_id: str,
@@ -599,8 +686,14 @@ async def _validate_action_evidence(
     ticket_id: str,
     evidence_ids: list[str],
     principal: Principal,
+    trusted_evidence_ids: set[str] | None = None,
 ) -> None:
     if not evidence_ids:
+        return
+    if trusted_evidence_ids is not None:
+        missing = sorted(set(evidence_ids) - trusted_evidence_ids)
+        if missing:
+            raise HTTPException(status_code=422, detail="evidence_not_linked_to_remediation_card")
         return
     async with acquire() as conn:
         rows = await conn.fetch(
@@ -625,12 +718,12 @@ async def _validate_action_evidence(
         raise HTTPException(status_code=422, detail="evidence_not_linked_to_case")
 
 
-@app.post("/api/v1/cases/{ticket_id}/actions")
-async def execute_case_action(
+async def _execute_case_action(
     ticket_id: str,
     payload: TicketActionCreate,
     request: Request,
-    principal: Principal = Depends(current_principal),
+    principal: Principal,
+    trusted_evidence_ids: set[str] | None = None,
 ) -> dict[str, Any]:
     require_roles(principal, "support_agent", "support_lead", "support_ops", "billing_ops", "admin")
     await _case_row(ticket_id, principal)
@@ -640,6 +733,7 @@ async def execute_case_action(
         ticket_id=ticket_id,
         evidence_ids=payload.evidence_ids,
         principal=principal,
+        trusted_evidence_ids=trusted_evidence_ids,
     )
     trace_id = current_trace_id() or f"trace_{uuid.uuid4().hex}"
     tool_payload = {
@@ -692,6 +786,100 @@ async def execute_case_action(
         details={"operation": payload.operation, "approval_id": result.get("approval_id")},
     )
     return result
+
+
+@app.post("/api/v1/cases/{ticket_id}/actions")
+async def execute_case_action(
+    ticket_id: str,
+    payload: TicketActionCreate,
+    request: Request,
+    principal: Principal = Depends(current_principal),
+) -> dict[str, Any]:
+    return await _execute_case_action(ticket_id, payload, request, principal)
+
+
+async def _remediation_card_action_evidence(
+    *, ticket_id: str, payload: RemediationActionCreate, principal: Principal
+) -> set[str]:
+    """Bind an action request to one tenant-scoped card audit record.
+
+    The client cannot manufacture an evidence ID: it must be one emitted by the
+    named card request and retained server-side without storing the question.
+    """
+
+    async with acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT details
+            FROM product_audit_event
+            WHERE tenant_id = $1
+              AND resource_type = 'ticket'
+              AND resource_id = $2
+              AND event_type = 'remediation_card.generate'
+              AND trace_id = $3
+              AND outcome = 'success'
+              AND release_id = $4
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            principal.tenant_id,
+            ticket_id,
+            payload.card_trace_id,
+            settings.release_id,
+        )
+    if row is None:
+        raise HTTPException(status_code=422, detail="remediation_card_not_found_or_not_authorized")
+    details = dict(row["details"] or {})
+    raw_proposal = details.get("proposed_action")
+    proposal = raw_proposal if isinstance(raw_proposal, dict) else {}
+    expected_control = "confirm" if payload.operation == "add_internal_note" else "hitl"
+    if proposal.get("operation") != payload.operation or proposal.get("control") != expected_control:
+        raise HTTPException(status_code=409, detail="action_not_proposed_by_remediation_card")
+    return {str(value) for value in details.get("evidence_ids", []) if isinstance(value, str)}
+
+
+@app.post("/api/v1/cases/{ticket_id}/remediation-card/actions")
+async def execute_remediation_card_action(
+    ticket_id: str,
+    payload: RemediationActionCreate,
+    request: Request,
+    principal: Principal = Depends(current_principal),
+) -> dict[str, Any]:
+    """Run a human-confirmed card proposal through the existing ticket_update control plane."""
+
+    require_roles(principal, "support_agent", "support_lead", "support_ops", "billing_ops", "admin")
+    if not payload.confirmed:
+        raise HTTPException(status_code=409, detail="explicit_confirmation_required")
+    if payload.operation == "grant_service_credit" and payload.amount_cents is None:
+        raise HTTPException(status_code=422, detail="amount_cents_required")
+    trusted_evidence_ids = await _remediation_card_action_evidence(
+        ticket_id=ticket_id, payload=payload, principal=principal
+    )
+    action_payload = TicketActionCreate(
+        operation=payload.operation,
+        reason=payload.reason,
+        amount_cents=payload.amount_cents,
+        currency=payload.currency,
+        evidence_ids=payload.evidence_ids,
+        idempotency_key=payload.idempotency_key,
+    )
+    with traced_span(
+        "product.remediation_card.action",
+        kind="CHAIN",
+        attributes={
+            "omni.ticket_id": ticket_id,
+            "omni.actor.role": principal.role,
+            "omni.remediation.operation": payload.operation,
+            "omni.remediation.card_trace_id": payload.card_trace_id,
+        },
+    ):
+        return await _execute_case_action(
+            ticket_id,
+            action_payload,
+            request,
+            principal,
+            trusted_evidence_ids=trusted_evidence_ids,
+        )
 
 
 @app.get("/api/v1/approvals")

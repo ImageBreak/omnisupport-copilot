@@ -1,0 +1,23 @@
+{
+  "report_kind": "webhook_remediation_card_governed_actions_validation",
+  "endpoint": "POST /api/v1/cases/{ticket_id}/remediation-card/actions",
+  "ticket_id": "TKT-20260706-900123",
+  "data_classification": "synthetic_only",
+  "confirmation_rejection": {"status_code": 409, "detail": "explicit_confirmation_required"},
+  "release_bound_followup": {"card_release_id": "capstone-v1.0.0", "action_release_id": "capstone-v1.0.0", "status": "completed", "trace_id": "9edb4b1f1d42ff52a2f96456a920f689"},
+  "low_risk_note": {
+    "card_proposal": {"operation": "add_internal_note", "control": "confirm"},
+    "card_trace_id": "87009f1e45c34a55d3d7d399462f188f",
+    "result": {"ticket_id": "TKT-20260706-900123", "operation": "add_internal_note", "status": "completed", "trace_id": "5c1ff3e79de251a94907c9fea3764155", "lineage_event_id": "act_ad1bdb8e7f8a4e07ab41", "release_id": "capstone-v1.0.0", "approval_id": null, "hitl_required": false},
+    "same_key_replay": {"status": "cached", "trace_id": "5c1ff3e79de251a94907c9fea3764155", "lineage_event_id": "act_ad1bdb8e7f8a4e07ab41"},
+    "trace_spans": ["product.remediation_card.action", "tool.idempotency.check", "tool.execute.ticket_update", "agent.lineage.persist"]
+  },
+  "high_risk_credit": {
+    "card_proposal": {"operation": "grant_service_credit", "control": "hitl"},
+    "card_trace_id": "f146f7003c9d076e67939a46ab8a1d42",
+    "amount_cents": 100,
+    "awaiting_approval": {"ticket_id": "TKT-20260706-900123", "operation": "grant_service_credit", "status": "awaiting_approval", "approval_id": "apr_ef2b70e9000842d9917c", "hitl_required": true, "reason_codes": ["risk_level == 'financial'"], "trace_id": "8de38749f67442e94debfd74ce76849a", "lineage_event_id": "act_f4d18f74387b44e48f99", "release_id": "capstone-v1.0.0"},
+    "approved_resume": {"status": "completed", "approval_id": "apr_ef2b70e9000842d9917c", "trace_id": "8de38749f67442e94debfd74ce76849a", "lineage_event_id": "act_a8bd797068e54d37a178", "release_id": "capstone-v1.0.0", "hitl_required": true, "resume_trace_id": "bcea062fd8dcdf029b4955e1b444e37e", "resume_trace_spans": ["hitl.resume", "tool.execute.ticket_update", "agent.lineage.persist"]},
+    "await_trace_spans": ["product.remediation_card.action", "hitl.evaluate", "hitl.wait", "tool.idempotency.check", "agent.lineage.persist"]
+  }
+}

@@ -166,7 +166,12 @@ def generate_tickets(
 
 def generate_manifests(*, root: Path, output_dir: Path) -> list[Path]:
     grouped = {
-        "northstar_workspace": ["workspace-admin-recovery.html", "workspace-api-webhook.html"],
+        "northstar_workspace": [
+            "workspace-admin-recovery.html",
+            "workspace-api-webhook.html",
+            "workspace-webhook-authentication.html",
+            "workspace-webhook-delivery-retry.html",
+        ],
         "northstar_edge_gateway": ["edge-gateway-tls-recovery.html"],
         "northstar_studio": ["studio-job-recovery.html"],
         "cross_product": ["support-credit-policy.html", "security-support-boundary.html"],
@@ -193,7 +198,7 @@ def generate_manifests(*, root: Path, output_dir: Path) -> list[Path]:
                 }
             )
         manifest = {
-            "manifest_id": f"manifest-capstone-{product_line.replace('_', '-')}-20260721-001",
+            "manifest_id": f"manifest-capstone-{product_line.replace('_', '-')}-20260721-002",
             "schema_version": "source_manifest_v1",
             "batch_id": "batch-capstone-knowledge-v1",
             "modality": "document",
@@ -215,7 +220,12 @@ def generate_manifests(*, root: Path, output_dir: Path) -> list[Path]:
             "ingest_config": {"parser": "auto", "chunk_size": 420, "chunk_overlap": 60, "pii_scan": True},
             "created_at": "2026-07-21T00:00:00Z",
             "owner": "course-team",
-            "notes": "Week15 enterprise capstone knowledge pack.",
+            "notes": (
+                "Week15 enterprise capstone knowledge pack. "
+                "Workspace manifest revision 002 includes the webhook remediation knowledge pack."
+                if product_line == "northstar_workspace"
+                else "Week15 enterprise capstone knowledge pack."
+            ),
         }
         output = output_dir / f"manifest_{product_line}.json"
         output.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

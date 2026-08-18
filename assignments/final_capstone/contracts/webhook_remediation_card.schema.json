@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "omni://assignments/final_capstone/contracts/webhook_remediation_card/v1",
+  "title": "Webhook Remediation Card Response",
+  "description": "Evidence-grounded remediation plan. Runtime code, not model text, supplies release_id and trace_id and validates citation provenance.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "summary",
+    "steps",
+    "citations",
+    "confidence",
+    "needs_clarification",
+    "abstain_reason",
+    "proposed_action",
+    "release_id",
+    "trace_id"
+  ],
+  "properties": {
+    "summary": {"type": "string", "minLength": 1, "maxLength": 500},
+    "steps": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {"type": "string", "minLength": 1, "maxLength": 500}
+    },
+    "citations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["evidence_id", "source", "section"],
+        "properties": {
+          "evidence_id": {"type": "string", "minLength": 1},
+          "source": {"type": "string", "minLength": 1},
+          "section": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "needs_clarification": {"type": "boolean"},
+    "abstain_reason": {"type": ["string", "null"], "maxLength": 500},
+    "proposed_action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation", "control"],
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": ["none", "add_internal_note", "grant_service_credit"]
+        },
+        "control": {"type": "string", "enum": ["none", "confirm", "hitl"]}
+      }
+    },
+    "release_id": {"type": "string", "minLength": 1},
+    "trace_id": {"type": "string", "minLength": 1}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"proposed_action": {"properties": {"operation": {"const": "none"}}, "required": ["operation"]}}},
+      "then": {"properties": {"proposed_action": {"properties": {"control": {"const": "none"}}}}}
+    },
+    {
+      "if": {"properties": {"proposed_action": {"properties": {"operation": {"const": "add_internal_note"}}, "required": ["operation"]}}},
+      "then": {"properties": {"proposed_action": {"properties": {"control": {"const": "confirm"}}}}}
+    },
+    {
+      "if": {"properties": {"proposed_action": {"properties": {"operation": {"const": "grant_service_credit"}}, "required": ["operation"]}}},
+      "then": {"properties": {"proposed_action": {"properties": {"control": {"const": "hitl"}}}}}
+    }
+  ],
+  "x-runtime-invariants": {
+    "citation_provenance": "Every citation evidence_id and source must be copied from the active tenant-scoped RAG response; handwritten IDs or URLs are rejected.",
+    "runtime_fields": ["release_id", "trace_id"],
+    "privacy": "Do not put customer text, payloads, signing secrets, or PII in this response or trace attributes.",
+    "abstention": "No retrieved evidence, unsupported cause, or conflicting evidence requires abstention or clarification rather than invention."
+  }
+}

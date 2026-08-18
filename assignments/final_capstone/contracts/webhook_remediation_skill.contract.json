@@ -1,0 +1,60 @@
+{
+  "name": "webhook_remediation_card",
+  "version": "1.1.0",
+  "description": "Tenant-scoped, evidence-grounded diagnostic planner for Northstar Workspace webhook incidents. It proposes actions but never executes a side effect directly.",
+  "input_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["question", "ticket_id", "tenant_id", "actor_role", "product_line"],
+    "properties": {
+      "question": {"type": "string", "minLength": 2, "maxLength": 2048},
+      "ticket_id": {"type": "string", "minLength": 1},
+      "tenant_id": {"type": "string", "minLength": 1},
+      "actor_role": {"type": "string", "enum": ["support_agent", "support_lead", "support_ops", "billing_ops", "admin"]},
+      "product_line": {"const": "northstar_workspace"},
+      "retrieval_mode": {"type": "string", "enum": ["hybrid", "auto"], "default": "hybrid"}
+    }
+  },
+  "output_schema_ref": "webhook_remediation_card.schema.json",
+  "governed_action_schema_ref": "webhook_remediation_action.schema.json",
+  "dependencies": {
+    "rag_response_contract": "../../../contracts/service/rag_response.schema.json",
+    "governed_ticket_tool_contract": "../../../contracts/tools/tools/ticket_update.json"
+  },
+  "server_enforced_controls": {
+    "tenant_scope": "tenant_id and actor_role are derived from authenticated server context; browser and model-provided values are not authority.",
+    "citation_provenance": "output citations must be a subset of the current RAG response citations after tenant and visibility filtering.",
+    "trace_privacy": "default spans record identifiers, hashes, lengths, release IDs, and decision metadata only; raw customer text, webhook payloads, secrets, and PII are excluded.",
+    "action_execution": "The card returns a proposal only. The card-action endpoint requires confirmed=true, then binds operation and evidence_ids to the tenant-scoped server audit record identified by card_trace_id before it calls existing ticket_update. ticket_update enforces authorization, idempotency, audit, and approval."
+  },
+  "action_policy": [
+    {
+      "operation": "none",
+      "card_control": "none",
+      "execution": "no_tool_call"
+    },
+    {
+      "operation": "add_internal_note",
+      "card_control": "confirm",
+      "execution": "after explicit user confirmation, bind card_trace_id and cited evidence to the case, then invoke ticket_update with internal_write risk, authenticated actor, trace_id, and idempotency_key"
+    },
+    {
+      "operation": "grant_service_credit",
+      "card_control": "hitl",
+      "execution": "after a human submits the request, bind card_trace_id and cited evidence to the case and invoke ticket_update only as an approval request with financial risk, trace_id, and idempotency_key; no automatic completion"
+    }
+  ],
+  "abstention_policy": {
+    "clarify_when_missing": ["http_status", "webhook_version"],
+    "abstain_when": ["no_tenant_authorized_evidence", "evidence_conflict", "unsupported_causal_claim", "sensitive_data_request"],
+    "never_invent": ["citation", "evidence_id", "URL", "HTTP status", "webhook version", "signing secret"]
+  },
+  "evaluation_policy": {
+    "key_point_pass_rate_min": 0.8,
+    "citation_support_rate_required": 1.0,
+    "high_risk_action_bypass_max": 0,
+    "model_fault_success_rate_required": 1.0,
+    "require_existing_capstone_e2e_pass": true,
+    "latency": "Report p95 against the baseline; no cross-machine threshold is asserted."
+  }
+}

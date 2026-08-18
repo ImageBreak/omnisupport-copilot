@@ -1,0 +1,39 @@
+{
+  "report_kind": "webhook_remediation_knowledge_pipeline_run",
+  "run_number": 2,
+  "run_role": "second run with the identical manifest, data release, index release, and chunk strategy",
+  "execution_path": "docker compose --profile capstone --env-file infra/env/.env.local -f infra/docker-compose.yml run --rm capstone_bootstrap python -m scripts.capstone.bootstrap --root /workspace --stage knowledge",
+  "stage": "knowledge",
+  "manifest_id": "manifest-capstone-northstar-workspace-20260721-002",
+  "release_context": {
+    "release_id": "capstone-v1.0.0",
+    "data_release_id": "data-capstone-v1",
+    "index_release_id": "index-capstone-v1"
+  },
+  "knowledge_stage": {
+    "active_source_count": 12,
+    "current_chunk_count": 205,
+    "retired_document_count": 0,
+    "retired_chunk_count": 0,
+    "retired_anchor_count": 0,
+    "index": {
+      "total_chunks": 205,
+      "embedded": 0,
+      "skipped": 205,
+      "errors": 0,
+      "elapsed_sec": 0.05512809753417969,
+      "skip_semantics": "Already indexed on index-capstone-v1; no second embedding is required."
+    }
+  },
+  "idempotency_comparison": {
+    "run_1_current_chunk_count": 205,
+    "run_2_current_chunk_count": 205,
+    "chunk_delta": 0,
+    "run_1_embedded": 30,
+    "run_2_embedded": 0,
+    "new_source_embedded_vectors_after_run_1": 30,
+    "duplicate_sections_detected": false,
+    "evidence_anchor_delta": 0
+  },
+  "result": "pass"
+}

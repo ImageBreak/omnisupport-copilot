@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "omni://assignments/final_capstone/contracts/webhook_remediation_action/v1",
+  "title": "Webhook Remediation Card Governed Action",
+  "description": "Human-confirmed request that binds a remediation-card trace and its server-recorded evidence to an existing ticket_update operation.",
+  "$defs": {
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["card_trace_id", "operation", "confirmed", "reason", "evidence_ids", "idempotency_key"],
+      "properties": {
+        "card_trace_id": {"type": "string", "minLength": 1, "maxLength": 160},
+        "operation": {"type": "string", "enum": ["add_internal_note", "grant_service_credit"]},
+        "confirmed": {"const": true},
+        "reason": {"type": "string", "minLength": 8, "maxLength": 2048},
+        "evidence_ids": {"type": "array", "minItems": 1, "maxItems": 5, "items": {"type": "string", "minLength": 1}},
+        "idempotency_key": {"type": "string", "minLength": 8, "maxLength": 160},
+        "amount_cents": {"type": "integer", "minimum": 1},
+        "currency": {"type": "string", "enum": ["USD", "CNY"], "default": "USD"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"operation": {"const": "grant_service_credit"}}, "required": ["operation"]},
+          "then": {"required": ["amount_cents"]}
+        }
+      ]
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ticket_id", "operation", "status", "trace_id", "lineage_event_id", "release_id", "approval_id", "hitl_required"],
+      "properties": {
+        "ticket_id": {"type": "string"},
+        "operation": {"type": "string", "enum": ["add_internal_note", "grant_service_credit"]},
+        "status": {"type": "string", "enum": ["completed", "awaiting_approval", "cached"]},
+        "trace_id": {"type": "string", "minLength": 1},
+        "lineage_event_id": {"type": "string", "minLength": 1},
+        "release_id": {"type": "string", "minLength": 1},
+        "approval_id": {"type": ["string", "null"]},
+        "hitl_required": {"type": "boolean"},
+        "reason_codes": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  },
+  "request_schema_ref": "#/$defs/request",
+  "result_schema_ref": "#/$defs/result",
+  "x-runtime-invariants": {
+    "proposal_binding": "operation and control must match the server-recorded card proposal for card_trace_id, tenant, and ticket.",
+    "evidence_binding": "every evidence_id must be a server-recorded citation of that card; handwritten IDs are rejected.",
+    "low_risk": "add_internal_note requires confirmed=true and then uses existing ticket_update idempotency.",
+    "high_risk": "grant_service_credit is always sent as financial risk and must return awaiting_approval until an authorized reviewer resumes it."
+  }
+}

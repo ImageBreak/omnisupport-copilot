@@ -1,0 +1,69 @@
+{
+  "report_kind": "webhook_remediation_card_api_validation",
+  "endpoint": "POST /api/v1/cases/{ticket_id}/remediation-card",
+  "authentication": "demo support_agent; tenant derived from the signed server-side principal",
+  "ticket_id": "TKT-20260706-900123",
+  "normal_evidence_response": {
+    "summary": "Retrieved evidence supports verifying signature validation and rotation configuration; it does not establish a root cause.",
+    "steps": [
+      "Confirm the delivery log status and retain the request identifier.",
+      "Verify the consumer validates the exact webhook version delivered.",
+      "Verify the approved current-and-next signing-secret rotation window before one replay."
+    ],
+    "citations": [
+      {
+        "evidence_id": "anchor-7b2010271b695decca598c5d",
+        "source": "doc:capstone:workspace-webhook-authentication",
+        "section": "Check whether the customer has configured both the current and next signing secr"
+      },
+      {
+        "evidence_id": "anchor-bb22279dc0926ba91ca5e5da",
+        "source": "doc:capstone:workspace-webhook-authentication",
+        "section": "Record the HTTP status, webhook version, event identifier, request identifier, a"
+      },
+      {
+        "evidence_id": "anchor-50f6e62a42b146c57d8f95c4",
+        "source": "doc:capstone:workspace-webhook-authentication",
+        "section": "Signing-secret rotation, endpoint ownership changes, and bulk replay require a s"
+      }
+    ],
+    "confidence": 0.8999999999999999,
+    "needs_clarification": false,
+    "abstain_reason": null,
+    "proposed_action": {"operation": "none", "control": "none"},
+    "release_id": "capstone-v1.0.0",
+    "trace_id": "756d4e2b02d8a4845fb7473827f5270e"
+  },
+  "normal_evidence_trace_spans": [
+    "product.remediation_card",
+    "rag.query.rewrite",
+    "rag.retrieve.hybrid",
+    "rag.retrieve.lexical",
+    "rag.retrieve.vector",
+    "rag.audit.persist"
+  ],
+  "clarification_response": {
+    "citations": [
+      {
+        "evidence_id": "anchor-6533778fa7333fa17a880a1a",
+        "source": "doc:capstone:workspace-webhook-authentication",
+        "section": "Support visibility: internal. This runbook covers HTTP 401 responses from a cus"
+      }
+    ],
+    "confidence": 0.45,
+    "needs_clarification": true,
+    "abstain_reason": "missing_required_context:http_status,webhook_version",
+    "proposed_action": {"operation": "none", "control": "none"},
+    "release_id": "capstone-v1.0.0",
+    "trace_id": "1140db1203d9717956e7fc76163da1ad"
+  },
+  "abstention_response": {
+    "citations": [],
+    "confidence": 0.0,
+    "needs_clarification": false,
+    "abstain_reason": "unsupported_request_requires_external_vendor_evidence",
+    "proposed_action": {"operation": "none", "control": "none"},
+    "release_id": "capstone-v1.0.0",
+    "trace_id": "12c3743fc6164a0f2b88a20d8ec23762"
+  }
+}

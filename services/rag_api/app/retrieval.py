@@ -90,7 +90,13 @@ def _apply_metadata_filters(
         where_clauses.append(f"COALESCE(ks.data_release_id, kd.data_release_id) = ${len(params)+1}")
         params.append(data_release_id)
     if product_line and product_line != "any":
-        where_clauses.append(f"kd.product_line = ${len(params)+1}")
+        # Cross-product policy documents (for example service-credit controls)
+        # are published under the enum label `cross_product` and remain
+        # tenant/visibility filtered. A strict equality here made governed
+        # documents unreachable from concrete product incidents.
+        where_clauses.append(
+            f"(kd.product_line = ${len(params)+1} OR kd.product_line = 'cross_product'::product_line)"
+        )
         params.append(product_line)
     if visibility_scope:
         where_clauses.append(f"kd.visibility_scope = ${len(params)+1}")
