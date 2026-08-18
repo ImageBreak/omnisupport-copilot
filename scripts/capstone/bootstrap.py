@@ -561,7 +561,8 @@ async def rollback_stage(*, target_release_id: str, dry_run: bool = False) -> di
             )
             if current is None:
                 raise RuntimeError("active release manifest is missing")
-            body = dict(current["manifest_body"])
+            manifest_body = current["manifest_body"]
+            body = json.loads(manifest_body) if isinstance(manifest_body, str) else dict(manifest_body)
             if body.get("previous_release_id") != target_release_id:
                 raise RuntimeError("rollback target must be the candidate's direct previous release")
             next_generation = int(active["generation"]) + 1
