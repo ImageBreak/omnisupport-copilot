@@ -1,0 +1,2 @@
+# Migration checksums must be identical across Windows and Unix worktrees.
+infra/migrations/*.sql text eol=lf
