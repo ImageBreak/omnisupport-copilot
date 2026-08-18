@@ -42,6 +42,29 @@ def _path_from_uri(value: str) -> Path | None:
     return Path(value)
 
 
+def _resolve_asset_path(value: str, *, manifest_path: Path | None) -> Path | None:
+    """Resolve a local asset path independently of the process working directory.
+
+    Classroom manifests commonly name assets from the repository root (for example
+    ``data/week07_media/...``).  That happens to work in the devbox, whose working
+    directory is ``/workspace``, but Dagster runs from ``/opt/dagster/app``.  Look
+    for a relative asset from each manifest ancestor as well, so both execution
+    environments load the real bytes rather than the synthetic fallback.
+    """
+
+    candidate = _path_from_uri(value)
+    if candidate is None or candidate.is_absolute() or candidate.exists():
+        return candidate
+    if manifest_path is None:
+        return candidate
+
+    for base in manifest_path.resolve().parents:
+        resolved = base / candidate
+        if resolved.exists():
+            return resolved
+    return candidate
+
+
 def _decode_text(raw: bytes, asset_type: str, *, raw_available: bool) -> str:
     if raw_available and asset_type in BINARY_ASSET_TYPES:
         return ""
@@ -121,6 +144,7 @@ def _document_from_asset(
     expected_fingerprint: str | None = None,
     input_path: Path | None = None,
     content_type: str | None = None,
+    manifest_path: Path | None = None,
 ) -> SourceDocument:
     source_id = asset["source_id"]
     asset_type = content_type or asset.get("asset_type") or "other"
@@ -129,7 +153,10 @@ def _document_from_asset(
     warnings: list[str] = []
     raw_available = False
 
-    candidate_path = input_path or _path_from_uri(source_url_or_path)
+    candidate_path = input_path or _resolve_asset_path(
+        source_url_or_path,
+        manifest_path=manifest_path,
+    )
     if candidate_path and candidate_path.exists():
         raw_bytes = candidate_path.read_bytes()
         raw_available = True
@@ -218,6 +245,7 @@ def load_sources(
             expected_fingerprint=expected_fingerprint,
             input_path=input_path if len(assets) == 1 else None,
             content_type=content_type,
+            manifest_path=manifest_path,
         )
         for asset in assets
     ]
