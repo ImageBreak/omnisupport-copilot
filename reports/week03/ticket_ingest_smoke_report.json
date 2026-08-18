@@ -1,18 +1,27 @@
 {
   "report_version": "week03_ticket_ingest_smoke_report_v1",
   "report_kind": "ticket_ingest_smoke",
-  "run_id": "ticket-ingest::batch-week03-ticket-smoke",
-  "generated_at": "2026-04-23T17:32:03.814256+00:00",
-  "batch_id": "batch-week03-ticket-smoke",
-  "input": "tests/integration/fixtures/week03/tickets-smoke.jsonl",
-  "dry_run": true,
+  "run_id": "ticket-ingest::lab-homework-01",
+  "generated_at": "2026-06-12T02:57:37.434544+00:00",
+  "batch_id": "lab-homework-01",
+  "input": "data/canonization/tickets/tickets-seed-001.jsonl",
+  "dry_run": false,
   "summary": {
-    "total": 2,
-    "valid": 2,
+    "total": 500,
+    "valid": 500,
     "invalid": 0,
-    "inserted": 0,
-    "skipped": 2,
-    "errors": 0
+    "processed": 500,
+    "inserted": 1,
+    "skipped": 499,
+    "errors": 0,
+    "bronze_inserted": 1,
+    "bronze_duplicates": 499,
+    "silver_upserted": 500
+  },
+  "checkpoint": {
+    "state_path": "/workspace/data/canonization/checkpoints/week03_ingest_state.json",
+    "checkpoints_written": 1,
+    "skipped_reason": null
   },
   "status": "ok",
   "recommended_action": "proceed_to_next_stage"

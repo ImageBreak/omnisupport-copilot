@@ -1,0 +1,19 @@
+{
+  "report_version": "week03_ticket_ingest_smoke_report_v1",
+  "report_kind": "ticket_ingest_smoke",
+  "run_id": "ticket-ingest::lab-week03-ticket-001",
+  "generated_at": "2026-05-27T08:51:14.905855+00:00",
+  "batch_id": "lab-week03-ticket-001",
+  "input": "data/canonization/tickets/tickets-lab-001.jsonl",
+  "dry_run": false,
+  "summary": {
+    "total": 200,
+    "valid": 200,
+    "invalid": 0,
+    "inserted": 200,
+    "skipped": 0,
+    "errors": 0
+  },
+  "status": "ok",
+  "recommended_action": "proceed_to_next_stage"
+}

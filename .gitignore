@@ -64,3 +64,6 @@ reports/capstone/
 # Compiled assets
 *.mo
 *.pot
+
+#data
+data

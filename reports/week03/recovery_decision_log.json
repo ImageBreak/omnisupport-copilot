@@ -1,26 +1,45 @@
 {
-  "mode": "replay",
+  "mode": "backfill",
   "source_id": "structured:tickets:seed_batch_001",
-  "dry_run": true,
-  "batch_id": null,
+  "dry_run": false,
+  "batch_id": "lab-homework-01",
   "start_cursor": null,
   "end_cursor": null,
   "checkpoint_snapshot": {
     "source_id": "structured:tickets:seed_batch_001",
-    "last_processed_cursor": "2026-03-31T00:00:00Z",
-    "last_success_batch_id": "batch-20260331-001",
-    "last_run_id": "seed-loader::batch-20260331-001",
-    "updated_at": "2026-04-24T00:00:00+00:00"
+    "last_processed_cursor": "2026-04-23T08:44:21.898209+00:00",
+    "last_success_batch_id": "lab-homework-01",
+    "last_run_id": "ticket-ingest::lab-homework-01",
+    "updated_at": "2026-06-10T05:32:14.987222+00:00"
   },
   "execution_plan": [
     "Resolve source scope for structured:tickets:seed_batch_001.",
     "Inspect the latest ingest checkpoint before taking recovery action.",
-    "Reprocess an already known historical batch from the raw zone.",
-    "Replay batch batch-20260331-001.",
-    "Write a Week03 recovery decision report before touching downstream storage."
+    "Construct a historical cursor window and run the batch in dry-run first.",
+    "Write a Week03 recovery decision report before touching downstream storage.",
+    "Run ticket_ingest through the recovery entrypoint; non-dry-run execution uses the idempotent raw-event guard and checkpoint update."
   ],
-  "warnings": [],
-  "recommended_action": "proceed_to_next_stage",
-  "status": "ok",
-  "generated_at": "2026-04-23T17:32:04.100890+00:00"
+  "warnings": [
+    "Backfill mode expects both start_cursor and end_cursor."
+  ],
+  "recommended_action": "retry_after_metadata_repair",
+  "status": "warning",
+  "execution_result": {
+    "total": 500,
+    "valid": 500,
+    "invalid": 0,
+    "processed": 500,
+    "inserted": 4,
+    "skipped": 496,
+    "errors": 0,
+    "bronze_inserted": 4,
+    "bronze_duplicates": 496,
+    "silver_upserted": 500,
+    "batch_id": "lab-homework-01",
+    "input": "data/canonization/tickets/tickets-seed-001.jsonl",
+    "dry_run": false,
+    "state_path": "/workspace/data/canonization/checkpoints/week03_ingest_state.json",
+    "checkpoints_written": 1
+  },
+  "generated_at": "2026-06-10T07:37:47.371628+00:00"
 }
