@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="source-id" content="doc:capstone:workspace-webhook-authentication">
+  <meta name="document-version" content="1.0.0">
+  <meta name="license" content="course_synthetic">
+  <meta name="pii-classification" content="none">
+  <title>Workspace webhook authentication recovery</title>
+</head>
+<body><article>
+<h1>Workspace webhook authentication recovery</h1>
+<p>Document version: 1.0.0. Source: Northstar Workspace internal support runbook. License: course_synthetic. PII classification: none.</p>
+<p>Support visibility: internal. This runbook covers HTTP 401 responses from a customer webhook endpoint. It does not authorize disclosure, replacement, or rotation of a signing secret.</p>
+<h2>Required facts before diagnosis</h2>
+<p>Record the HTTP status, webhook version, event identifier, request identifier, and delivery timestamp. Do not copy a webhook payload, authorization header, signing secret, or customer identifier into chat, notes, or telemetry.</p>
+<h2>Evidence-supported sequence</h2>
+<ol>
+  <li>Confirm the delivery log shows HTTP 401 for the affected event and retain its request identifier.</li>
+  <li>Confirm the consumer validates the signature for the exact webhook version delivered; do not silently substitute a newer version.</li>
+  <li>Check whether the customer has configured both the current and next signing secrets during an approved rotation window.</li>
+  <li>Ask the customer to compare their key identifier and signature algorithm configuration without sending secret material to support.</li>
+  <li>After the customer confirms the validation configuration, replay one failed delivery using the same event identifier and verify the consumer records one business event.</li>
+</ol>
+<h2>Escalation and safety boundary</h2>
+<p>Signing-secret rotation, endpoint ownership changes, and bulk replay require a support lead. A support agent may add an internal note after confirmation and with the logged evidence identifiers. Missing HTTP status or webhook version requires clarification, not a claim that a signature mismatch caused the failure.</p>
+</article></body>
+</html>

@@ -67,3 +67,5 @@ reports/capstone/
 
 #data
 data
+!assignments/final_capstone/data/
+!assignments/final_capstone/data/**

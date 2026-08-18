@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="source-id" content="doc:capstone:workspace-webhook-delivery-retry">
+  <meta name="document-version" content="1.0.0">
+  <meta name="license" content="course_synthetic">
+  <meta name="pii-classification" content="none">
+  <title>Workspace webhook delivery, retry, and version recovery</title>
+</head>
+<body><article>
+<h1>Workspace webhook delivery, retry, and version recovery</h1>
+<p>Document version: 1.0.0. Source: Northstar Workspace internal support runbook. License: course_synthetic. PII classification: none.</p>
+<p>Support visibility: internal. This runbook covers HTTP 404 delivery failures, retry behavior, duplicate delivery, and version-safe troubleshooting.</p>
+<h2>Required facts before diagnosis</h2>
+<p>Preserve the exact HTTP status, webhook version, subscribed event name, endpoint host and path, event identifier, request identifier, delivery attempt count, and delivery timestamp. Do not infer an endpoint path from a status code alone.</p>
+<h2>HTTP 404 sequence</h2>
+<ol>
+  <li>Confirm the delivery log records HTTP 404 and identify the exact webhook version and endpoint path used for that attempt.</li>
+  <li>Ask the customer to verify that the public HTTPS endpoint and route for that version are deployed and reachable.</li>
+  <li>Confirm the subscription event name and organization scope match the intended consumer.</li>
+  <li>When the customer confirms a corrected route, replay one failed delivery with the original event identifier.</li>
+  <li>Confirm a 2xx response within ten seconds and exactly one resulting business event.</li>
+</ol>
+<h2>Retry and idempotency</h2>
+<p>Retries and a manual single-delivery replay can produce more than one delivery attempt for the same event identifier. Consumers must deduplicate by event identifier. Support must not recommend a bulk replay, disable deduplication, or treat a repeated attempt as a new business event. The HTTP status and webhook version remain part of the incident record across retries.</p>
+<h2>Escalation and safety boundary</h2>
+<p>Bulk replay and endpoint ownership changes require a support lead. A service credit may only be proposed when verified customer impact is documented with evidence; it always follows the existing human approval path. If the delivery log is unavailable, the card must request clarification or abstain rather than construct a diagnosis.</p>
+</article></body>
+</html>

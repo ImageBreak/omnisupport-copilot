@@ -1,0 +1,55 @@
+{
+  "manifest_id": "manifest-capstone-webhook-remediation-20260818-001",
+  "schema_version": "source_manifest_v1",
+  "batch_id": "batch-capstone-webhook-remediation-v1",
+  "modality": "document",
+  "source_type": "help_center",
+  "product_line": "northstar_workspace",
+  "license_tag": "course_synthetic",
+  "contract_ref": "omni://contracts/data/doc_asset/v1",
+  "load_mode": "full_snapshot",
+  "canonization_status": "canonized",
+  "gate_policy": {
+    "on_missing_checksum": "reject",
+    "on_partial_metadata": "warn",
+    "on_missing_metadata": "quarantine",
+    "on_pii_gap": "quarantine",
+    "on_contract_mismatch": "reject",
+    "on_unknown_license": "reject"
+  },
+  "assets": [
+    {
+      "source_id": "doc:capstone:workspace-webhook-authentication",
+      "source_url_or_path": "assignments/final_capstone/data/documents/workspace-webhook-authentication.html",
+      "asset_type": "html",
+      "contract_ref": "omni://contracts/data/doc_asset/v1",
+      "size_bytes": 2175,
+      "checksum_sha256": "7cba14975dcad77822e43d1ee712bf9644d9d8bda5d4c38310a5a427d5169b2b",
+      "language": "en",
+      "metadata_status": "complete",
+      "pii_scan_status": "clear",
+      "notes": "Synthetic Northstar Workspace internal webhook authentication runbook, document version 1.0.0."
+    },
+    {
+      "source_id": "doc:capstone:workspace-webhook-delivery-retry",
+      "source_url_or_path": "assignments/final_capstone/data/documents/workspace-webhook-delivery-retry.html",
+      "asset_type": "html",
+      "contract_ref": "omni://contracts/data/doc_asset/v1",
+      "size_bytes": 2464,
+      "checksum_sha256": "cda83d1ebc146c8977c736c66ca19f08ca3d1c716a29472cff95ae81f7bc7a18",
+      "language": "en",
+      "metadata_status": "complete",
+      "pii_scan_status": "clear",
+      "notes": "Synthetic Northstar Workspace internal webhook delivery and retry runbook, document version 1.0.0."
+    }
+  ],
+  "ingest_config": {
+    "parser": "auto",
+    "chunk_size": 420,
+    "chunk_overlap": 60,
+    "pii_scan": true
+  },
+  "created_at": "2026-08-18T00:00:00Z",
+  "owner": "course-team",
+  "notes": "Final-capstone synthetic webhook remediation knowledge pack. Original object version and SHA-256 are pinned per asset."
+}
