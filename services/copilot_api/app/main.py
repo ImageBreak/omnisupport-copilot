@@ -376,6 +376,8 @@ async def create_remediation_card(
 ) -> RemediationCardResponse:
     """Build an evidence-gated webhook remediation card without executing an action."""
 
+    if not settings.remediation_card_enabled:
+        raise HTTPException(status_code=404, detail="remediation_card_not_enabled_for_release")
     require_roles(principal, "support_agent", "support_lead", "support_ops", "billing_ops", "admin")
     case = await _case_row(ticket_id, principal)
     rag_request = {
@@ -847,6 +849,8 @@ async def execute_remediation_card_action(
 ) -> dict[str, Any]:
     """Run a human-confirmed card proposal through the existing ticket_update control plane."""
 
+    if not settings.remediation_card_enabled:
+        raise HTTPException(status_code=404, detail="remediation_card_not_enabled_for_release")
     require_roles(principal, "support_agent", "support_lead", "support_ops", "billing_ops", "admin")
     if not payload.confirmed:
         raise HTTPException(status_code=409, detail="explicit_confirmation_required")
