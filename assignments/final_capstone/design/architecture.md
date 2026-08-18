@@ -23,6 +23,27 @@ published internal evidence constrained to the case tenant and product line, the
 returns a diagnostic plan. It does not use untrusted case text as proof and does
 not infer a root cause that the retrieved evidence does not support.
 
+### Main request path
+
+```text
+Authenticated support agent + tenant-scoped Workspace case
+  -> remediation-card API validates ticket and actor context
+  -> Query Rewrite preserves exact identifiers (HTTP status, version, error code)
+     and falls back deterministically on model failure
+  -> existing Hybrid RAG applies tenant, product-line, visibility, and release filters
+  -> evidence gate accepts only retrieved anchors with source and section metadata
+  -> schema-validated remediation card: diagnosis, <=3 ordered steps, citations,
+     confidence, clarification/abstention decision, and proposed action
+  -> optional action: explicit confirmation + idempotency + card trace/evidence receipt
+     -> internal note completed OR service credit awaiting approval -> authorized resume
+  -> Phoenix spans and release pointer connect the response/action to its trace and version
+```
+
+The same path fails safely: missing operational context produces a clarification;
+missing, conflicting, or unauthorized evidence produces an abstention with no
+invented citation; a model failure degrades Rewrite/Generation rather than
+returning a 500.
+
 ### Successful outcome
 
 A successful card:
@@ -98,6 +119,32 @@ from the runtime request/release context, not from model output.
   authorization, evidence, or idempotency controls.
 - No cross-tenant case or evidence lookup, no hand-authored citation treated as
   retrieval evidence, and no sensitive customer or secret content in Trace.
+
+### Key decisions and trade-offs
+
+- **Reuse the production retrieval chain, not a new knowledge stack.** The card
+  uses existing Query Rewrite, FTS + vector Hybrid RAG, evidence anchors, and
+  pgvector. This keeps data lineage and tenant filtering in one proven path;
+  the trade-off is that the small package does not attempt a separate GraphRAG
+  design or production-scale retrieval tuning.
+- **Prefer safe uncertainty over fluent speculation.** The card may return a
+  shorter clarification or abstention instead of a diagnosis when evidence is
+  absent, conflicting, or insufficient. This reduces apparent answer coverage
+  but preserves the no-false-evidence requirement.
+- **The model proposes; server code authorizes and executes.** Proposed actions
+  are constrained by the frozen contract, while tenant/case/release binding,
+  explicit confirmation, idempotency, permissions, and HITL are enforced by the
+  existing Skill/Tool control plane. This deliberately adds a control step
+  before any side effect.
+- **Trace identifiers, not customer content.** Phoenix receives trace/release
+  links, decision metadata, and identifiers/hashes by default, while raw
+  questions, payloads, secrets, and PII are excluded. The trade-off is less
+  convenient prompt-level debugging in exchange for the privacy hard gate.
+- **Release is a version binding plus a feature gate.** Data, index, prompt,
+  Skill, service, and Git versions are recorded in the governed manifest; the
+  remediation-card feature gate makes the candidate capability explicitly
+  disableable after rollback. This requires service recreation during a local
+  rollback but makes the rollback behavior observable.
 
 ### Hard delivery gates
 
